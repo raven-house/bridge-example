@@ -2,7 +2,7 @@
  * L2 to L1 Token Bridge Script using Raven Bridge SDK
  *
  * This script demonstrates bridging tokens from Aztec L2 (Devnet) to Ethereum L1 (Sepolia)
- * using the @ravenhouse/bridge-sdk package.
+ * using the @ravenhouse/bridge-sdk package. Supports both public and private (from private balance) transfers.
  *
  * Environment Variables Required:
  * - AZTEC_ENV: Environment (devnet/sandbox/testnet)
@@ -10,11 +10,15 @@
  * - ADMIN_SECRET_KEY: Secret key for L2 account
  * - ADMIN_SIGNING_KEY: Signing key for L2 account
  * - ADMIN_SALT: Salt for L2 account
- * - BRIDGE_API_KEY: API key for Raven Bridge (for future use)
  * - BRIDGE_AMOUNT: Amount to bridge (optional, defaults to 1)
+ * - BRIDGE_PRIVATE: Set to "true" to withdraw from private balance (optional, defaults to public)
  *
  * Usage:
+ *   # Public transfer (from public balance)
  *   AZTEC_ENV=devnet bun run src/bridge_l2_to_l1.ts
+ *
+ *   # Private transfer (from private balance)
+ *   AZTEC_ENV=devnet BRIDGE_PRIVATE=true bun run src/bridge_l2_to_l1.ts
  */
 
 import { waitForNode } from '@aztec/aztec.js/node'
@@ -47,8 +51,8 @@ dotenv.config()
 // Configuration
 // ============================================================================
 
-const BRIDGE_API_KEY = process.env.BRIDGE_API_KEY || ''
 const BRIDGE_AMOUNT = process.env.BRIDGE_AMOUNT || '1' // Amount to bridge (in token units)
+const BRIDGE_PRIVATE = process.env.BRIDGE_PRIVATE === 'true' // Whether to withdraw from private balance
 
 // Get network config based on AZTEC_ENV
 const ENV = (process.env.AZTEC_ENV || 'devnet') as
@@ -71,10 +75,13 @@ const logger = createLogger('bridge-l2-to-l1')
 // ============================================================================
 
 async function main() {
+  const transferMode = BRIDGE_PRIVATE ? 'PRIVATE' : 'PUBLIC'
+
   logger.info('='.repeat(60))
   logger.info('Raven Bridge SDK - L2 to L1 Token Bridge')
   logger.info('='.repeat(60))
   logger.info(`Environment: ${networkConfig.name}`)
+  logger.info(`Transfer Mode: ${transferMode}`)
   logger.info(`L1 RPC: ${networkConfig.network.l1RpcUrl}`)
   logger.info(`L2 Node: ${networkConfig.network.nodeUrl}`)
   logger.info('')
@@ -174,7 +181,15 @@ async function main() {
   logger.info('')
   logger.info('Step 4: Executing L2 to L1 bridge...')
   logger.info(`Amount: ${BRIDGE_AMOUNT} ${rhtToken.symbol}`)
+  logger.info(`Mode: ${BRIDGE_PRIVATE ? 'Private (from private balance)' : 'Public (from public balance)'}`)
   logger.info('')
+
+  if (BRIDGE_PRIVATE) {
+    logger.info('NOTE: Private transfer will withdraw from your private (shielded) balance.')
+    logger.info('      Tokens will be unshielded and sent to L1.')
+    logger.info('')
+  }
+
   logger.info('NOTE: This operation includes waiting for block proof generation,')
   logger.info('      which can take several minutes on devnet/testnet.')
   logger.info('')
@@ -190,7 +205,7 @@ async function main() {
     const result = await bridge.bridgeL2ToL1({
       token: rhtToken,
       amount: BRIDGE_AMOUNT,
-      isPrivate: false,
+      isPrivate: BRIDGE_PRIVATE,
       onStep,
     })
 

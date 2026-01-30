@@ -7,9 +7,15 @@
     "bridge:l1-to-l2:devnet": "AZTEC_ENV=devnet bun run src/bridge_l1_to_l2.ts",
     "bridge:l1-to-l2:sandbox": "AZTEC_ENV=sandbox bun run src/bridge_l1_to_l2.ts",
     "bridge:l1-to-l2:testnet": "AZTEC_ENV=testnet bun run src/bridge_l1_to_l2.ts",
+    "bridge:l1-to-l2:devnet:private": "AZTEC_ENV=devnet BRIDGE_PRIVATE=true bun run src/bridge_l1_to_l2.ts",
+    "bridge:l1-to-l2:sandbox:private": "AZTEC_ENV=sandbox BRIDGE_PRIVATE=true bun run src/bridge_l1_to_l2.ts",
+    "bridge:l1-to-l2:testnet:private": "AZTEC_ENV=testnet BRIDGE_PRIVATE=true bun run src/bridge_l1_to_l2.ts",
     "bridge:l2-to-l1:devnet": "AZTEC_ENV=devnet bun run src/bridge_l2_to_l1.ts",
     "bridge:l2-to-l1:sandbox": "AZTEC_ENV=sandbox bun run src/bridge_l2_to_l1.ts",
-    "bridge:l2-to-l1:testnet": "AZTEC_ENV=testnet bun run src/bridge_l2_to_l1.ts"
+    "bridge:l2-to-l1:testnet": "AZTEC_ENV=testnet bun run src/bridge_l2_to_l1.ts",
+    "bridge:l2-to-l1:devnet:private": "AZTEC_ENV=devnet BRIDGE_PRIVATE=true bun run src/bridge_l2_to_l1.ts",
+    "bridge:l2-to-l1:sandbox:private": "AZTEC_ENV=sandbox BRIDGE_PRIVATE=true bun run src/bridge_l2_to_l1.ts",
+    "bridge:l2-to-l1:testnet:private": "AZTEC_ENV=testnet BRIDGE_PRIVATE=true bun run src/bridge_l2_to_l1.ts"
   },
   "dependencies": {
     "@ravenhouse/bridge-sdk": "0.1.0",

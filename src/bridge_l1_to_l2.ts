@@ -2,7 +2,7 @@
  * L1 to L2 Token Bridge Script using Raven Bridge SDK
  *
  * This script demonstrates bridging tokens from Ethereum L1 (Sepolia) to Aztec L2 (Devnet)
- * using the @ravenhouse/bridge-sdk package.
+ * using the @ravenhouse/bridge-sdk package. Supports both public and private transfers.
  *
  * Environment Variables Required:
  * - AZTEC_ENV: Environment (devnet/sandbox/testnet)
@@ -10,15 +10,22 @@
  * - ADMIN_SECRET_KEY: Secret key for L2 account
  * - ADMIN_SIGNING_KEY: Signing key for L2 account
  * - ADMIN_SALT: Salt for L2 account
- * - BRIDGE_API_KEY: API key for Raven Bridge (for future use)
+ * - BRIDGE_PRIVATE: Set to "true" for private transfer (optional, defaults to public)
  *
  * Usage:
+ *   # Public transfer (default)
  *   AZTEC_ENV=devnet bun run src/bridge_l1_to_l2.ts
+ *
+ *   # Private transfer
+ *   AZTEC_ENV=devnet BRIDGE_PRIVATE=true bun run src/bridge_l1_to_l2.ts
  */
 
 import { waitForNode } from '@aztec/aztec.js/node'
 import { TestWallet } from '@aztec/test-wallet/server'
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC'
+import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge'
+import { TokenContract } from '@aztec/noir-contracts.js/Token'
+import { AztecAddress } from '@aztec/aztec.js/addresses'
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee'
 import { createExtendedL1Client } from '@aztec/ethereum/client'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -46,8 +53,8 @@ dotenv.config()
 // Configuration
 // ============================================================================
 
-const BRIDGE_API_KEY = process.env.BRIDGE_API_KEY || ''
 const BRIDGE_AMOUNT = process.env.BRIDGE_AMOUNT || '2' // Amount to bridge (in token units, e.g., 2 RHT)
+const BRIDGE_PRIVATE = process.env.BRIDGE_PRIVATE === 'true' // Whether to use private transfer
 
 // Get network config based on AZTEC_ENV
 const ENV = (process.env.AZTEC_ENV || 'devnet') as
@@ -70,10 +77,13 @@ const logger = createLogger('bridge-l1-to-l2')
 // ============================================================================
 
 async function main() {
+  const transferMode = BRIDGE_PRIVATE ? 'PRIVATE' : 'PUBLIC'
+
   logger.info('='.repeat(60))
   logger.info('Raven Bridge SDK - L1 to L2 Token Bridge')
   logger.info('='.repeat(60))
   logger.info(`Environment: ${networkConfig.name}`)
+  logger.info(`Transfer Mode: ${transferMode}`)
   logger.info(`L1 RPC: ${networkConfig.network.l1RpcUrl}`)
   logger.info(`L2 Node: ${networkConfig.network.nodeUrl}`)
   logger.info('')
@@ -135,6 +145,24 @@ async function main() {
   )
   logger.info(`Sponsored FPC registered: ${sponsoredFPC.address}`)
 
+  // Register the bridge contract (needed for claim step) // RHT token
+  const bridgeAddress = networkConfig.tokens[0].l2.bridgeAddress;
+  const bridgeInstance = await node.getContract(AztecAddress.fromString(bridgeAddress))
+  if (!bridgeInstance) {
+    throw new Error(`Bridge contract not found at ${bridgeAddress}`)
+  }
+  await testWallet.registerContract(bridgeInstance, TokenBridgeContract.artifact)
+  logger.info(`Bridge contract registered: ${bridgeAddress}`)
+
+  // Register the token contract (needed for claim step) // RHT token
+  const tokenAddress = networkConfig.tokens[0].l2.tokenAddress;
+  const tokenInstance = await node.getContract(AztecAddress.fromString(tokenAddress))
+  if (!tokenInstance) {
+    throw new Error(`Token contract not found at ${tokenAddress}`)
+  }
+  await testWallet.registerContract(tokenInstance, TokenContract.artifact)
+  logger.info(`Token contract registered: ${tokenAddress}`)
+
   // Create TestWalletAdapter for SDK compatibility
   const l2WalletAdapter = new TestWalletAdapter(
     testWallet,
@@ -173,7 +201,14 @@ async function main() {
   logger.info('')
   logger.info('Step 4: Executing L1 to L2 bridge...')
   logger.info(`Amount: ${BRIDGE_AMOUNT} ${rhtToken.symbol}`)
+  logger.info(`Mode: ${BRIDGE_PRIVATE ? 'Private (shielded on L2)' : 'Public'}`)
   logger.info('')
+
+  if (BRIDGE_PRIVATE) {
+    logger.info('NOTE: Private transfer will shield tokens on L2.')
+    logger.info('      Tokens will be deposited to your private balance.')
+    logger.info('')
+  }
 
   const onStep = (step: BridgeStep) => {
     const statusIcon = getStepStatusIcon(step.status)
@@ -186,7 +221,7 @@ async function main() {
     const result = await bridge.bridgeL1ToL2({
       token: rhtToken,
       amount: BRIDGE_AMOUNT,
-      isPrivate: false,
+      isPrivate: BRIDGE_PRIVATE,
       onStep,
     })
 
@@ -215,6 +250,11 @@ async function main() {
 
     logger.info('')
     logger.info('Bridge completed successfully!')
+    if (BRIDGE_PRIVATE) {
+      logger.info('Tokens have been deposited to your private balance on L2.')
+    } else {
+      logger.info('Tokens have been deposited to your public balance on L2.')
+    }
   } catch (error) {
     logger.error('')
     logger.error('Bridge failed!')
