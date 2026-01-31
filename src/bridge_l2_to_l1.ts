@@ -46,6 +46,7 @@ import {
 // Script utilities
 import { getAccountFromEnv } from './utils/create_account_from_env.js'
 import { getSponsoredFPCInstance } from './utils/sponsored_fpc.js'
+import { logBalances } from './utils/balance.js'
 
 
 // Load environment variables
@@ -165,6 +166,9 @@ async function main() {
     await testWallet.registerContract(tokenInstance, TokenContract.artifact)
     logger.info(`Token contract registered: ${tokenAddress}`)
 
+    // Get token contract instance for balance queries
+    const tokenContract = await TokenContract.at(AztecAddress.fromString(tokenAddress), testWallet)
+
 
   // Create TestWalletAdapter for SDK compatibility
   const l2WalletAdapter = new TestWalletAdapter(
@@ -217,6 +221,18 @@ async function main() {
   logger.info('      which can take several minutes on devnet/testnet.')
   logger.info('')
 
+  // Log balances before bridging
+  await logBalances(
+    'BEFORE BRIDGE',
+    l1Client,
+    rhtToken.l1.tokenAddress,
+    l1Client.account.address,
+    tokenContract,
+    ownerAztecAddress,
+    rhtToken.symbol,
+    logger,
+  )
+
   const onStep = (step: BridgeStep) => {
     const statusIcon = getStepStatusIcon(step.status)
     logger.info(
@@ -254,6 +270,18 @@ async function main() {
       const icon = getStepStatusIcon(step.status)
       logger.info(`  ${icon} ${step.label}: ${step.status}`)
     }
+
+    // Log balances after bridging
+    await logBalances(
+      'AFTER BRIDGE',
+      l1Client,
+      rhtToken.l1.tokenAddress,
+      l1Client.account.address,
+      tokenContract,
+      ownerAztecAddress,
+      rhtToken.symbol,
+      logger,
+    )
 
     logger.info('')
     logger.info('Bridge completed successfully!')
