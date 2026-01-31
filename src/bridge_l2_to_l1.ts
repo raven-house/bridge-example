@@ -24,6 +24,9 @@
 import { waitForNode } from '@aztec/aztec.js/node'
 import { TestWallet } from '@aztec/test-wallet/server'
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC'
+import { AztecAddress } from '@aztec/aztec.js/addresses'
+import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge'
+import { TokenContract } from '@aztec/noir-contracts.js/Token'
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee'
 import { createExtendedL1Client } from '@aztec/ethereum/client'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -43,6 +46,7 @@ import {
 // Script utilities
 import { getAccountFromEnv } from './utils/create_account_from_env.js'
 import { getSponsoredFPCInstance } from './utils/sponsored_fpc.js'
+
 
 // Load environment variables
 dotenv.config()
@@ -142,6 +146,25 @@ async function main() {
     sponsoredFPC.address,
   )
   logger.info(`Sponsored FPC registered: ${sponsoredFPC.address}`)
+
+    // Register the bridge contract (needed for claim step) // RHT token
+    const bridgeAddress = networkConfig.tokens[0].l2.bridgeAddress;
+    const bridgeInstance = await node.getContract(AztecAddress.fromString(bridgeAddress))
+    if (!bridgeInstance) {
+      throw new Error(`Bridge contract not found at ${bridgeAddress}`)
+    }
+    await testWallet.registerContract(bridgeInstance, TokenBridgeContract.artifact)
+    logger.info(`Bridge contract registered: ${bridgeAddress}`)
+  
+    // Register the token contract (needed for claim step) // RHT token
+    const tokenAddress = networkConfig.tokens[0].l2.tokenAddress;
+    const tokenInstance = await node.getContract(AztecAddress.fromString(tokenAddress))
+    if (!tokenInstance) {
+      throw new Error(`Token contract not found at ${tokenAddress}`)
+    }
+    await testWallet.registerContract(tokenInstance, TokenContract.artifact)
+    logger.info(`Token contract registered: ${tokenAddress}`)
+
 
   // Create TestWalletAdapter for SDK compatibility
   const l2WalletAdapter = new TestWalletAdapter(
